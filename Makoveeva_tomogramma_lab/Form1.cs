@@ -22,20 +22,53 @@ namespace Makoveeva_tomogramma_lab
         private View view;
         private bool loaded = false;
         private int currentLayer;
+
+        private bool needReload = false;
         private DateTime NextFPSUpdate = DateTime.Now.AddSeconds(1);
         private int FrameCount;
-        private bool needReload = false;
+        private bool NeedReload = false;
 
-
-        private int min;
-        private int width;
-
+        private int min=0;
+        private int width=255;
+       
         public Form1()
         {
             InitializeComponent();
             InitializeGLControl();
-        }
+            InitializeTrackBar();
+            Application.Idle += Application_Idle;
 
+        }
+        
+        private void Application_Idle(object sender, EventArgs e)
+        {
+            while (glControl1.IsIdle)
+            {
+                if (loaded)
+                {
+    
+                    FrameCount++;
+
+                    if (DateTime.Now >= NextFPSUpdate)
+                    {
+                        this.Text = $"Томограмма (FPS: {FrameCount})";
+                        NextFPSUpdate = DateTime.Now.AddSeconds(1);
+                        FrameCount = 0;
+                    }
+
+               
+                    glControl1.Invalidate();
+                }
+            }
+        }
+        private void InitializeTrackBar()
+        {
+            trackBar1.Minimum = 0;
+            trackBar1.Maximum = 10;
+            trackBar1.Value = 0;
+            trackBar1.TickFrequency = 1;
+            trackBar1.Scroll += trackBar1_Scroll;
+        }
         private void InitializeGLControl()
         {
             this.glControl1 = new OpenTK.GLControl();
@@ -52,7 +85,7 @@ namespace Makoveeva_tomogramma_lab
 
         private void GlControl1_Load(object sender, EventArgs e)
         {
-            // Инициализация OpenGL
+
             GL.ClearColor(Color.Black);
         }
 
@@ -61,11 +94,23 @@ namespace Makoveeva_tomogramma_lab
             if (loaded)
             {
                 GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-                view.DrawQuads(currentLayer,0,255);
+                view.DrawQuads(currentLayer, min, width);
+
+      
                 glControl1.SwapBuffers();
+
+                if (NeedReload)
+                {
+                    NeedReload = false;
+                    GL.Finish();
+                }
             }
         }
-
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            Application.Idle -= Application_Idle;
+        }
         private void Form1_Load(object sender, EventArgs e)
         {
             bin = new Bin();
@@ -74,7 +119,7 @@ namespace Makoveeva_tomogramma_lab
 
         private void toolStripButton1_Click(object sender, EventArgs e)
         {
-            // Обработчик клика по кнопке на ToolStrip
+        
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -86,6 +131,20 @@ namespace Makoveeva_tomogramma_lab
                 bin.readBIN(str);
                 view.SetupView(glControl1.Width, glControl1.Height);
                 loaded = true;
+
+                trackBar1.Maximum = Bin.Z - 1;
+                trackBar1.Value = Bin.Z / 2;
+                currentLayer = trackBar1.Value;
+
+                glControl1.Invalidate();
+            }
+        }
+
+        private void trackBar1_Scroll(object sender, EventArgs e)
+        {
+            currentLayer = trackBar1.Value;
+            if (loaded)
+            {
                 glControl1.Invalidate();
             }
         }
